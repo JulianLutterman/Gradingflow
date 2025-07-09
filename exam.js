@@ -1254,7 +1254,7 @@ async function checkScanStatus(examId) {
     if (!currentScanSessionToken) return;
 
     try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-scan-session?token=${currentScanSessionToken}`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-scan-session?token=${currentScanSessionToken}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
         });
