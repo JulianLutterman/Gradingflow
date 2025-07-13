@@ -1,4 +1,4 @@
-﻿// --- CONFIGURATION ---
+// --- CONFIGURATION ---
 const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
 const APPENDIX_GCF_URL = 'https://add-appendix-232485517114.europe-west1.run.app';
@@ -11,6 +11,8 @@ const STORAGE_BUCKET = 'exam-visuals';
 // You will need to deploy these functions to your Supabase project
 const GENERATE_SCAN_SESSION_URL = `${SUPABASE_URL}/functions/v1/generate-scan-session`;
 const PROCESS_SCANNED_SESSION_URL = `${SUPABASE_URL}/functions/v1/process-scanned-session`;
+// --- Add to your CONFIGURATION section ---
+const CREATE_SUBMISSION_SESSION_URL = `${SUPABASE_URL}/functions/v1/create-submission-session`;
 // Base URL for the mobile scanning page (adjust if your Vercel deployment is different)
 const SCAN_PAGE_BASE_URL = `${window.location.origin}/scan.html`;
 
@@ -57,6 +59,32 @@ const gradeAllButton = document.getElementById('grade-all-button');
 const gradeAllButtonText = document.getElementById('grade-all-button-text');
 const spinnerGrading = document.getElementById('spinner-grading');
 
+// Multi-Scan
+const submissionChoiceContainer = document.getElementById('submission-choice-container');
+const chooseSingleStudentButton = document.getElementById('choose-single-student-button');
+const chooseMultiStudentButton = document.getElementById('choose-multi-student-button');
+const multiUploadModal = document.getElementById('multi-upload-modal');
+const multiUploadModalClose = document.getElementById('multi-upload-modal-close');
+const multiUploadChoiceArea = document.getElementById('multi-upload-choice-area');
+const multiScanButton = document.getElementById('multi-scan-button');
+const multiDirectUploadButton = document.getElementById('multi-direct-upload-button');
+const multiScanArea = document.getElementById('multi-scan-area');
+const multiScanTableContainer = document.getElementById('multi-scan-table-container');
+const multiScanAddRowButton = document.getElementById('multi-scan-add-row-button');
+const multiScanStartButton = document.getElementById('multi-scan-start-button');
+const multiScanQrArea = document.getElementById('multi-scan-qr-area');
+const multiQrcodeCanvas = document.getElementById('multi-qrcode-canvas');
+const multiScanUrlLink = document.getElementById('multi-scan-url');
+const multiScanProcessButton = document.getElementById('multi-scan-process-button');
+const spinnerMultiProcess = document.getElementById('spinner-multi-process');
+const multiScanProcessButtonText = document.getElementById('multi-scan-process-button-text');
+const multiDirectUploadArea = document.getElementById('multi-direct-upload-area');
+const multiDirectUploadTableContainer = document.getElementById('multi-direct-upload-table-container');
+const multiDirectAddRowButton = document.getElementById('multi-direct-add-row-button');
+const multiDirectProcessButton = document.getElementById('multi-direct-process-button');
+const spinnerMultiDirectProcess = document.getElementById('spinner-multi-direct-process');
+const multiDirectProcessButtonText = document.getElementById('multi-direct-process-button-text');
+
 // Global variable to store the current scan session token
 let currentScanSessionToken = null;
 // ADD these new global variables:
@@ -64,11 +92,16 @@ let scanPollingInterval = null;
 let scanProcessingTimeout = null;
 let currentExamData = null; // NEW: To store loaded exam data
 
+// Multi-Scan
+let currentMultiScanSession = null;
+let multiScanPollingInterval = null;
+
 // NEW: Global constants for default button texts
 const DEFAULT_GRADING_BUTTON_TEXT = 'Grade New Submissions';
 const DEFAULT_APPENDIX_BUTTON_TEXT = 'Upload Appendix';
 const DEFAULT_MODEL_BUTTON_TEXT = 'Upload Answer Model';
 const DEFAULT_SCAN_BUTTON_TEXT = 'Scan Answers';
+const MULTI_SCAN_PAGE_BASE_URL = `${window.location.origin}/multi-scan.html`;
 
 
 // --- HELPER FUNCTIONS ---
@@ -128,6 +161,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupFileInputFeedback('appendix-files', 'appendix-file-display');
     setupFileInputFeedback('model-files', 'model-file-display');
 
+    // --- START OF NEW, CORRECTED CODE ---
+    // This single, delegated event listener on the modal will handle all file inputs,
+    // including those added dynamically, without any conflicts.
+    multiUploadModal.addEventListener('change', (event) => {
+        // Check if the element that triggered the change is a file input within the direct upload table
+        if (event.target.matches('#direct-student-table input[type="file"]')) {
+            const fileInput = event.target;
+            const files = fileInput.files;
+            // The corresponding label is the very next element in the HTML structure
+            const label = fileInput.nextElementSibling;
+
+            if (label) {
+                if (files && files.length > 0) {
+                    // A slightly better way to display the count
+                    label.textContent = files.length === 1 ? `1 file selected` : `${files.length} files selected`;
+                } else {
+                    label.textContent = 'Choose Files';
+                }
+            }
+        }
+    });
+    // --- END OF NEW, CORRECTED CODE ---
+    
     const urlParams = new URLSearchParams(window.location.search);
     const examId = urlParams.get('id');
 
@@ -167,6 +223,60 @@ async function loadExamDetails(examId) {
         questionsContainer.innerHTML = `<p>Could not load exam details: ${error.message}</p>`;
         return;
     }
+
+    // NEW: Add event listeners for multi-upload modal
+    multiUploadModal.addEventListener('click', (event) => {
+        if (event.target === multiUploadModal) multiUploadModal.classList.add('hidden');
+    });
+    multiUploadModalClose.addEventListener('click', () => multiUploadModal.classList.add('hidden'));
+
+    // NEW: Add event listeners for submission choice
+    chooseSingleStudentButton.addEventListener('click', () => {
+        submissionChoiceContainer.classList.add('hidden');
+        studentAnswersForm.classList.remove('hidden');
+    });
+    chooseMultiStudentButton.addEventListener('click', () => {
+        multiUploadModal.classList.remove('hidden');
+        multiUploadChoiceArea.classList.remove('hidden');
+        multiScanArea.classList.add('hidden');
+        multiDirectUploadArea.classList.add('hidden');
+    });
+
+    // NEW: Add event listeners for multi-upload choices inside the modal
+    multiScanButton.addEventListener('click', () => {
+        multiUploadChoiceArea.classList.add('hidden');
+        multiScanArea.classList.remove('hidden');
+        generateStudentTable('scan');
+    });
+    multiDirectUploadButton.addEventListener('click', () => {
+        multiUploadChoiceArea.classList.add('hidden');
+        multiDirectUploadArea.classList.remove('hidden');
+        generateStudentTable('direct');
+    });
+
+    // NEW: Add event listeners for table and processing buttons
+    multiScanAddRowButton.addEventListener('click', () => addStudentTableRow('scan'));
+    multiDirectAddRowButton.addEventListener('click', () => addStudentTableRow('direct'));
+    multiScanStartButton.addEventListener('click', handleStartMultiScan);
+    multiDirectProcessButton.addEventListener('click', handleProcessAllDirectUploads);
+
+    multiDirectUploadArea.addEventListener('change', (event) => {
+        // Check if the element that triggered the change event is a file input inside our table
+        if (event.target.matches('#direct-student-table input[type="file"]')) {
+            const fileInput = event.target;
+            const files = fileInput.files;
+            // The corresponding label is the very next element in the HTML
+            const label = fileInput.nextElementSibling;
+    
+            if (label) {
+                if (files && files.length > 0) {
+                    label.textContent = files.length === 1 ? `1 file` : `${files.length} files`;
+                } else {
+                    label.textContent = 'Choose Files';
+                }
+            }
+        }
+    });
 
     currentExamData = examData; // Store exam data globally for later use
     examNameTitle.textContent = examData.exam_name;
@@ -1293,6 +1403,7 @@ async function checkScanStatus(examId) {
 /**
  * Processes the scanned answers (moved from the old button click handler)
  */
+// Replace the entire function with this one.
 async function processScannedAnswersBackground(scanSession, examId) {
     try {
         setButtonText(generateScanLinkButtonText, 'Fetching exam...');
@@ -1310,23 +1421,45 @@ async function processScannedAnswersBackground(scanSession, examId) {
         formData.append('exam_structure', JSON.stringify(examStructureForGcf));
 
         const downloadPromises = scanSession.uploaded_image_paths.map(async (imageUrl) => {
-            const filename = imageUrl.split('/').pop();
-            const { data: imageBlob, error: downloadError } = await sb.storage
-                .from(STORAGE_BUCKET)
-                .download(`temp_scans/${currentScanSessionToken}/${filename}`);
-            if (downloadError) {
-                console.warn(`Failed to download image ${filename}: ${downloadError.message}`);
+            // --- START OF FIX ---
+            // The download function needs the path *inside* the bucket, not the full URL.
+            // We extract this path by parsing the URL.
+            const url = new URL(imageUrl);
+            const objectPath = url.pathname.split(`/public/${STORAGE_BUCKET}/`)[1];
+
+            if (!objectPath) {
+                console.warn(`Could not parse object path from URL: ${imageUrl}`);
                 return null;
             }
-            return { filename, blob: imageBlob };
+
+            const { data: imageBlob, error: downloadError } = await sb.storage
+                .from(STORAGE_BUCKET)
+                .download(objectPath); // Use the correct, full object path.
+            // --- END OF FIX ---
+
+            if (downloadError) {
+                // Use the original filename for the error message.
+                const filename = imageUrl.split('/').pop();
+                console.warn(`Failed to download image ${filename}:`, downloadError);
+                return null;
+            }
+            // Return both blob and the original filename for appending to FormData
+            return { filename: imageUrl.split('/').pop(), blob: imageBlob };
         });
 
-        const downloadResults = await Promise.allSettled(downloadPromises);
+        const downloadResults = await Promise.all(downloadPromises);
         downloadResults.forEach(result => {
-            if (result.status === 'fulfilled' && result.value) {
-                formData.append('files', result.value.blob, result.value.filename);
+            if (result) { // Check if the result is not null
+                formData.append('files', result.blob, result.filename);
             }
         });
+
+        // --- ROBUSTNESS IMPROVEMENT ---
+        // Check if any files were actually added before calling the GCF.
+        if (!formData.has('files')) {
+            throw new Error("No image files could be downloaded or processed. Aborting GCF call.");
+        }
+        // --- END OF IMPROVEMENT ---
 
         setButtonText(generateScanLinkButtonText, 'Thinking... (~4 mins)');
         const controller = new AbortController();
@@ -1434,35 +1567,28 @@ async function processScannedAnswers(examId, preloadedSession = null) {
 // --- FIX END ---
 
 // FINAL CORRECTED VERSION
+// Replace this entire function
+// Replace this entire function in exam.js
 async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip) {
+    // The scanSession object now contains the correct, unique student_exam_id
+    const studentExamId = scanSession.student_exam_id;
+
+    if (!studentExamId) {
+        throw new Error(`Critical error: student_exam_id was not provided for student ${scanSession.student_name || scanSession.student_number}`);
+    }
+
     console.log("Starting to save student answers. GCF Response:", responseData);
     console.log("ZIP file contains:", Object.keys(zip.files));
-
-    let studentExamId;
-
-    // Find or create the student_exam record
-    const { data: existingStudentExam, error: seError } = await sb
-        .from('student_exams')
-        .select('id')
-        .eq('student_id', scanSession.student_id)
-        .eq('exam_id', examId)
-        .maybeSingle();
-
-    if (seError) throw new Error(`Error finding student_exam record: ${seError.message}`);
-
-    if (existingStudentExam) {
-        studentExamId = existingStudentExam.id;
-        await sb.from('student_answers').delete().eq('student_exam_id', studentExamId);
-    } else {
-        const { data: newStudentExam, error: createSeError } = await sb
-            .from('student_exams')
-            .insert({ student_id: scanSession.student_id, exam_id: examId, status: 'submitted' })
-            .select('id')
-            .single();
-        if (createSeError) throw new Error(`Could not create student_exam record: ${createSeError.message}`);
-        studentExamId = newStudentExam.id;
-    }
     console.log(`Using student_exam_id: ${studentExamId}`);
+
+    // --- START OF THE FIX ---
+    // Standardize the responseData structure. The GCF sometimes returns an array with one object.
+    let processedData = responseData;
+    if (Array.isArray(responseData) && responseData.length > 0) {
+        processedData = responseData[0];
+    }
+    // Now, `processedData` is guaranteed to be the object containing the `questions` array.
+    // --- END OF THE FIX ---
 
     // Get the current exam structure to map text content to sub_question IDs
     const { data: dbQuestions, error: fetchQError } = await sb
@@ -1480,73 +1606,55 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
     }, {});
 
     const answersToInsert = [];
-    for (const q_res of responseData.questions) {
-        for (const sq_res of q_res.sub_questions) {
-            const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
-            if (!sub_question_id) {
-                console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
-                continue;
-            }
-
-            if (sq_res.student_answers) {
-                let answerVisualUrl = null;
-
-                if (sq_res.student_answers.answer_visual) {
-                    // --- START OF THE FIX ---
-                    // Decode the filename from the GCF in case it contains URL-encoded characters like %20 for spaces.
-                    const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
-                    // --- END OF THE FIX ---
-
-                    const visualFile = zip.file(sq_res.student_answers.answer_visual); // Use original encoded name to find in zip
-
-                    if (visualFile) {
-                        setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
-
-                        const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
-                        const fileBlob = await visualFile.async('blob');
-
-                        const fileExtension = visualFilename.split('.').pop().toLowerCase();
-                        let mimeType = 'application/octet-stream'; // Default
-                        if (fileExtension === 'png') mimeType = 'image/png';
-                        else if (fileExtension === 'jpg' || fileExtension === 'jpeg') mimeType = 'image/jpeg';
-                        else if (fileExtension === 'gif') mimeType = 'image/gif';
-                        else if (fileExtension === 'webp') mimeType = 'image/webp';
-
-                        console.log(`Decoded filename: '${visualFilename}', using MIME type '${mimeType}'`);
-
-                        // Create the File object with the correct (decoded) filename and MIME type.
-                        const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
-
-                        const { error: uploadError } = await sb.storage
-                            .from(STORAGE_BUCKET)
-                            .upload(filePath, fileToUpload);
-
-                        if (uploadError) {
-                            console.error(`!!!!!!!! STORAGE UPLOAD FAILED for ${visualFilename} !!!!!!!!`);
-                            console.error("Error Details:", uploadError);
-                        } else {
-                            console.log(`SUCCESS: Storage upload for ${visualFilename} complete.`);
-                            const { data: urlData } = sb.storage
-                                .from(STORAGE_BUCKET)
-                                .getPublicUrl(filePath);
-                            answerVisualUrl = urlData.publicUrl;
-                            console.log(`Saved public URL: ${answerVisualUrl}`);
-                        }
-                    } else {
-                        // Note: We still use the original, potentially encoded name to search the zip, as that's the key.
-                        console.warn(`WARNING: Visual file '${sq_res.student_answers.answer_visual}' was in JSON but NOT FOUND in the ZIP.`);
-                    }
+    // Use the standardized `processedData` object here
+    if (!processedData || !processedData.questions || !Array.isArray(processedData.questions)) {
+        console.warn("Warning: No valid questions array found in the processed GCF response. Skipping answer insertion.");
+    } else {
+        for (const q_res of processedData.questions) { // <-- Use processedData
+            for (const sq_res of q_res.sub_questions) {
+                const sub_question_id = subQuestionLookup[q_res.question_number]?.[sq_res.sub_q_text_content];
+                if (!sub_question_id) {
+                    console.warn(`Warning: Could not find matching sub-question for Q#${q_res.question_number}. Skipping.`);
+                    continue;
                 }
 
-                answersToInsert.push({
-                    student_exam_id: studentExamId,
-                    sub_question_id: sub_question_id,
-                    answer_text: sq_res.student_answers.answer_text || null,
-                    answer_visual: answerVisualUrl
-                });
+                if (sq_res.student_answers) {
+                    let answerVisualUrl = null;
+                    if (sq_res.student_answers.answer_visual) {
+                        const visualFilename = decodeURIComponent(sq_res.student_answers.answer_visual);
+                        const visualFile = zip.file(sq_res.student_answers.answer_visual);
+                        if (visualFile) {
+                            setButtonText(generateScanLinkButtonText, `Uploading ${visualFilename}...`);
+                            const filePath = `public/${examId}/answers/${studentExamId}/${Date.now()}_${visualFilename}`;
+                            const fileBlob = await visualFile.async('blob');
+                            const fileExtension = visualFilename.split('.').pop().toLowerCase();
+                            let mimeType = 'application/octet-stream';
+                            if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExtension)) {
+                                mimeType = `image/${fileExtension}`;
+                            }
+                            const fileToUpload = new File([fileBlob], visualFilename, { type: mimeType });
+                            const { error: uploadError } = await sb.storage.from(STORAGE_BUCKET).upload(filePath, fileToUpload);
+                            if (uploadError) {
+                                console.error(`Storage upload failed for ${visualFilename}:`, uploadError);
+                            } else {
+                                const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+                                answerVisualUrl = urlData.publicUrl;
+                            }
+                        } else {
+                            console.warn(`WARNING: Visual file '${sq_res.student_answers.answer_visual}' was in JSON but NOT FOUND in the ZIP.`);
+                        }
+                    }
+                    answersToInsert.push({
+                        student_exam_id: studentExamId,
+                        sub_question_id: sub_question_id,
+                        answer_text: sq_res.student_answers.answer_text || null,
+                        answer_visual: answerVisualUrl
+                    });
+                }
             }
         }
     }
+
 
     if (answersToInsert.length > 0) {
         console.log("Preparing to insert these answers into DB:", answersToInsert);
@@ -1560,15 +1668,382 @@ async function saveStudentAnswersFromScan(scanSession, examId, responseData, zip
     }
 }
 
+// =================================================================
+// --- MULTI-STUDENT UPLOAD WORKFLOW ---
+// =================================================================
+
+function generateStudentTable(type, rowCount = 10) {
+    const container = type === 'scan' ? multiScanTableContainer : multiDirectUploadTableContainer;
+    const tableId = `${type}-student-table`;
+
+    // MODIFIED: Added 'Action' header and adjusted column widths
+    let tableHtml = `<table id="${tableId}"><thead><tr>
+        <th style="width: 3%;">#</th>
+        <th style="width: 37%;">Student Name</th>
+        <th style="width: 30%;">Student Number</th>
+        <th style="width: 25%;">${type === 'scan' ? 'Status' : 'Files'}</th>
+        <th style="width: 5%;">Action</th>
+    </tr></thead><tbody>`;
+
+    for (let i = 0; i < rowCount; i++) {
+        tableHtml += generateStudentTableRowHtml(i, type);
+    }
+
+    tableHtml += `</tbody></table>`;
+    container.innerHTML = tableHtml;
+
+    // NEW: Add event listener for delete buttons using event delegation
+    container.addEventListener('click', function (event) {
+        // Check if a delete button was clicked
+        if (event.target.classList.contains('delete-row-btn')) {
+            handleDeleteRow(event.target, tableId);
+        }
+    });
+}
+
+function generateStudentTableRowHtml(index, type) {
+    const fileInputId = `direct-upload-row-${index}`;
+    // The data attributes now only belong to the TR element.
+    const rowAttributes = `data-row-index="${index}" data-student-id=""`;
+
+    const actionCell = type === 'scan'
+        // The status cell is now clean, without redundant attributes.
+        ? `<td class="status-cell">Pending</td>`
+        : `<td>
+             <input type="file" id="${fileInputId}" class="file-input-hidden direct-upload-input" accept=".pdf,image/*" multiple>
+             <label for="${fileInputId}" class="file-input-label">Choose Files</label>
+           </td>`;
+
+    return `<tr ${rowAttributes}>
+        <td>${index + 1}</td>
+        <td><input type="text" class="student-name-input" placeholder="e.g., Jane Doe"></td>
+        <td><input type="text" class="student-number-input" placeholder="e.g., s1234567"></td>
+        ${actionCell}
+        <td><button type="button" class="delete-row-btn">×</button></td>
+    </tr>`;
+}
+
+function addStudentTableRow(type) {
+    const table = document.getElementById(`${type}-student-table`).getElementsByTagName('tbody')[0];
+    const newIndex = table.rows.length;
+    table.insertAdjacentHTML('beforeend', generateStudentTableRowHtml(newIndex, type));
+}
+
+async function handleStartMultiScan() {
+    multiScanStartButton.disabled = true;
+    multiScanAddRowButton.disabled = true; // <<< ADD THIS LINE
+    const rows = document.querySelectorAll('#scan-student-table tbody tr');
+    const students = Array.from(rows).map(row => ({
+        studentName: row.querySelector('.student-name-input').value.trim(),
+        studentNumber: row.querySelector('.student-number-input').value.trim()
+    })).filter(s => s.studentName || s.studentNumber);
+
+    if (students.length === 0) {
+        alert('Please fill in at least one student name or number.');
+        multiScanStartButton.disabled = false;
+        multiScanAddRowButton.disabled = false; // <<< ADD THIS LINE
+        return;
+    }
+
+    const examId = new URLSearchParams(window.location.search).get('id');
+
+    try {
+        const { data, error } = await sb.rpc('create_multi_scan_session', {
+            exam_id_arg: examId,
+            students_arg: students
+        });
+        if (error) throw error;
+
+        currentMultiScanSession = data;
+
+        // Link HTML rows to their new, permanent DB IDs.
+        if (data.students && data.students.length > 0) {
+            const tableRows = document.querySelectorAll('#scan-student-table tbody tr');
+            data.students.forEach((student, index) => {
+                // The order of returned students is guaranteed by the RPC.
+                const row = tableRows[index];
+                if (row) {
+                    // Add the permanent student ID to the row itself.
+                    row.dataset.studentId = student.id;
+                }
+            });
+        }
+
+        const scanUrl = `${MULTI_SCAN_PAGE_BASE_URL}?token=${data.session_token}`;
+
+        new QRious({ element: multiQrcodeCanvas, value: scanUrl, size: 200 });
+        multiScanUrlLink.href = scanUrl;
+        multiScanUrlLink.textContent = "Open Link in New Tab";
+        multiScanQrArea.classList.remove('hidden');
+        multiScanStartButton.classList.add('hidden');
+        startMultiScanPolling();
+    } catch (error) {
+        console.error('Failed to create multi-scan session:', error);
+        alert(`Error: ${error.message}`);
+        multiScanStartButton.disabled = false;
+        multiScanAddRowButton.disabled = false; // <<< ADD THIS LINE
+    }
+}
+
+// NEW: Function to handle the deletion of a table row
+function handleDeleteRow(buttonElement, tableId) {
+    // Find the closest parent <tr> element and remove it
+    const row = buttonElement.closest('tr');
+    if (row) {
+        row.remove();
+        // After removing, update the visual numbering of the remaining rows
+        renumberTableRows(tableId);
+    }
+}
+
+// NEW: Function to re-number the first column of a table visually
+function renumberTableRows(tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    // Get all the rows in the table's body
+    const rows = table.querySelectorAll('tbody tr');
+
+    // Loop through the rows and update the number in the first cell
+    rows.forEach((row, index) => {
+        const numberCell = row.cells[0];
+        if (numberCell) {
+            numberCell.textContent = index + 1;
+        }
+        // IMPORTANT: We do not change the 'data-row-index' attribute.
+        // This ensures that the polling logic for status updates remains
+        // correctly linked to the original row position.
+    });
+}
+
+function startMultiScanPolling() {
+    if (multiScanPollingInterval) clearInterval(multiScanPollingInterval);
+    multiScanPollingInterval = setInterval(async () => {
+        if (!currentMultiScanSession?.session_token) {
+            clearInterval(multiScanPollingInterval);
+            return;
+        }
+        try {
+            const { data: sessionData, error } = await sb.rpc('get_multi_scan_session_by_token', {
+                token_arg: currentMultiScanSession.session_token
+            });
+            if (error) throw error;
+
+            if (sessionData?.students) {
+                let allUploaded = true; // Assume all are uploaded until we find one that is not.
+
+                sessionData.students.forEach(student => {
+                    // --- START OF ROBUST SELECTION FIX ---
+                    // 1. Find the correct table row using its unique and permanent student ID.
+                    const row = document.querySelector(`tr[data-student-id="${student.id}"]`);
+                    if (row) {
+                        // 2. Find the status cell *within that specific row*.
+                        const statusCell = row.querySelector('.status-cell');
+                        if (statusCell) {
+                            statusCell.textContent = student.status.charAt(0).toUpperCase() + student.status.slice(1);
+                            if (student.status === 'uploaded') {
+                                statusCell.style.color = 'var(--color-green-pastel)';
+                                statusCell.style.fontWeight = 'bold';
+                            }
+                        }
+                    }
+                    // --- END OF ROBUST SELECTION FIX ---
+
+                    // Update the overall status check.
+                    if (student.status !== 'uploaded') {
+                        allUploaded = false;
+                    }
+                });
+
+                if (allUploaded) {
+                    clearInterval(multiScanPollingInterval);
+
+                    try {
+                        await sb.rpc('update_multi_scan_session_status', {
+                            session_token_arg: currentMultiScanSession.session_token,
+                            new_status_arg: 'completed'
+                        });
+                        console.log("Multi-scan session status updated to completed.");
+                    } catch (rpcError) {
+                        console.error("Failed to update session status:", rpcError);
+                    }
+
+                    multiScanProcessButton.classList.remove('hidden');
+                    // Use .onclick to prevent attaching multiple listeners if polling runs again.
+                    multiScanProcessButton.onclick = () => handleProcessAllSubmissions('scan');
+                }
+            }
+        } catch (err) {
+            console.error("Polling error:", err);
+            clearInterval(multiScanPollingInterval);
+        }
+    }, 5000);
+}
+
+async function handleProcessAllDirectUploads() {
+    await handleProcessAllSubmissions('direct');
+}
+
+async function handleProcessAllSubmissions(type) {
+    const processButton = type === 'scan' ? multiScanProcessButton : multiDirectProcessButton;
+    const spinner = type === 'scan' ? spinnerMultiProcess : spinnerMultiDirectProcess;
+    const buttonText = type === 'scan' ? multiScanProcessButtonText : multiDirectProcessButtonText;
+
+    processButton.disabled = true;
+    showSpinner(true, spinner);
+    setButtonText(buttonText, 'Processing...');
+
+    const examId = new URLSearchParams(window.location.search).get('id');
+    let submissions = [];
+
+    if (type === 'direct') {
+        const rows = document.querySelectorAll('#direct-student-table tbody tr');
+        submissions = Array.from(rows).map(row => ({
+            studentName: row.querySelector('.student-name-input').value.trim(),
+            studentNumber: row.querySelector('.student-number-input').value.trim(),
+            files: row.querySelector('input[type="file"]').files
+        })).filter(s => (s.studentName || s.studentNumber) && s.files.length > 0);
+    } else { // 'scan'
+        const { data } = await sb.rpc('get_multi_scan_session_by_token', { token_arg: currentMultiScanSession.session_token });
+        submissions = data.students.map(s => ({
+            studentName: s.student_name,
+            studentNumber: s.student_number,
+            uploaded_image_paths: s.uploaded_image_paths
+        }));
+    }
+
+    if (submissions.length === 0) {
+        alert('No valid submissions to process.');
+        processButton.disabled = false;
+        showSpinner(false, spinner);
+        setButtonText(buttonText, 'Process All Submissions');
+        return;
+    }
+
+    try {
+        setButtonText(buttonText, `Processing ${submissions.length} submissions (~4 mins)...`);
+        const processingPromises = submissions.map(sub => processSingleSubmission(examId, sub, type));
+        await Promise.all(processingPromises);
+
+        setButtonText(buttonText, 'All processed! Refreshing...');
+        await loadExamDetails(examId);
+        setTimeout(() => multiUploadModal.classList.add('hidden'), 2000);
+    } catch (error) {
+        console.error("Error during multi-submission processing:", error);
+        setButtonText(buttonText, 'Error! See console.');
+    } finally {
+        showSpinner(false, spinner);
+        // Don't re-enable button on success, but do on error after a delay
+    }
+}
+
+// ------------------------------------------------------------------
+// --- THIS IS THE NEW, CORRECT CODE. USE THIS TO REPLACE THE OLD ONE. ---
+// ------------------------------------------------------------------
+// Replace this entire function
+async function processSingleSubmission(examId, submission, type) {
+    let uploadedFilePaths = [];
+
+    try {
+        // Step 1: Handle file uploads for 'direct' type
+        if (type === 'direct') {
+            if (!submission.files || submission.files.length === 0) {
+                console.log(`Skipping ${submission.studentName || submission.studentNumber} - no files provided.`);
+                return;
+            }
+            const tempTokenForUpload = generateUUID();
+            const uploadPromises = Array.from(submission.files).map(file => {
+                const filePath = `temp_scans/${tempTokenForUpload}/${file.name}`;
+                return sb.storage.from(STORAGE_BUCKET).upload(filePath, file);
+            });
+            const results = await Promise.all(uploadPromises);
+
+            uploadedFilePaths = results.map(r => {
+                if (r.error) throw new Error(`File upload failed: ${r.error.message}`);
+                return sb.storage.from(STORAGE_BUCKET).getPublicUrl(r.data.path).data.publicUrl;
+            });
+        } else {
+            uploadedFilePaths = submission.uploaded_image_paths;
+        }
+
+        // Step 2: Call the secure Edge Function
+        const response = await fetch(CREATE_SUBMISSION_SESSION_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                examId: examId,
+                studentName: submission.studentName,
+                studentNumber: submission.studentNumber,
+                uploadedImagePaths: uploadedFilePaths
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create submission session on the server.');
+        }
+
+        const newSession = await response.json();
+
+        // --- START OF FIX ---
+        // DO NOT set the global variable.
+        // Instead, pass the 'newSession' object directly to the next function.
+        await processScannedAnswersBackground(newSession, examId);
+        // --- END OF FIX ---
+
+        console.log(`Successfully processed submission for ${submission.studentName || submission.studentNumber}`);
+
+    } catch (error) {
+        console.error(`Processing failed for ${submission.studentName || submission.studentNumber}:`, error);
+        throw error;
+    }
+}
+
+// Utility function to generate a UUID, needed for the temp token
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+}
+
+// Replace this entire function
 async function cleanupTempFiles(scanSession) {
     try {
+        // --- START OF FIX ---
+        // Use the session_token from the passed-in scanSession object,
+        // not the unreliable global variable.
+        const token = scanSession.session_token;
+        if (!token) {
+            console.warn("Cannot cleanup files: session token is missing.");
+            return;
+        }
+        // --- END OF FIX ---
+
         const pathsToDelete = scanSession.uploaded_image_paths.map(url => {
-            const filename = url.split('/').pop();
-            return `temp_scans/${currentScanSessionToken}/${filename}`;
+            const urlParts = url.split('/');
+            const filename = urlParts[urlParts.length - 1];
+            // Reconstruct the path using the correct token for this specific session.
+            return `temp_scans/${token}/${filename}`;
         });
 
         if (pathsToDelete.length > 0) {
-            await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
+            // Also check for the directory path itself, which might exist from multi-scan uploads
+            const directoryPath = `temp_scans/${token}`;
+            if (!pathsToDelete.includes(directoryPath)) {
+                pathsToDelete.push(directoryPath);
+            }
+
+            const { data, error } = await sb.storage.from(STORAGE_BUCKET).remove(pathsToDelete);
+            if (error) {
+                console.error('Partial failure during temp file cleanup:', error);
+            } else {
+                console.log(`Cleaned up temp files for session ${token}`);
+            }
         }
     } catch (error) {
         console.error('Failed to cleanup temp files:', error);
