@@ -1,4 +1,4 @@
-﻿// --- CONFIGURATION ---
+// --- CONFIGURATION ---
 const SUPABASE_URL = 'https://uagiatfoiwusxafxskvp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhZ2lhdGZvaXd1c3hhZnhza3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyODc0NjYsImV4cCI6MjA2NDg2MzQ2Nn0.b0wIEHgENkhzkp3qHAotqbLTq7BwsqgM7b0ksAl3h1U';
 const GCF_URL = 'https://exam-structurer-232485517114.europe-west1.run.app';
@@ -9,44 +9,69 @@ const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // --- DOM ELEMENTS ---
-const authSection = document.getElementById('auth-section');
-const appSection = document.getElementById('app-section');
-const loginView = document.getElementById('login-view');
-const signupView = document.getElementById('signup-view');
-const showSignup = document.getElementById('show-signup');
-const showLogin = document.getElementById('show-login');
-const loginForm = document.getElementById('login-form');
-const signupForm = document.getElementById('signup-form');
 const logoutButton = document.getElementById('logout-button');
 const userEmailSpan = document.getElementById('user-email');
 const examForm = document.getElementById('exam-form');
 const submitExamButton = document.getElementById('submit-exam-button');
-// NEW DOM ELEMENTS for button state
 const submitExamButtonText = document.getElementById('submit-exam-button-text');
 const spinnerExam = document.getElementById('spinner-exam');
-// Exam List DOM Elements
-const examListSection = document.getElementById('exam-list-section');
 const examCardsContainer = document.getElementById('exam-cards-container');
 
 // --- CONSTANTS ---
 const DEFAULT_EXAM_BUTTON_TEXT = 'Process and Upload Exam';
 
 // --- HELPER FUNCTIONS ---
-// NEW: Helper to update the button's text
 const setButtonText = (message) => {
-    if (submitExamButtonText) {
-        submitExamButtonText.textContent = message;
-    }
+    if (submitExamButtonText) submitExamButtonText.textContent = message;
     console.log(`UI Status: ${message}`);
 };
 
-// NEW: Helper to show/hide the spinner inside the button
 const showExamSpinner = (show) => {
     spinnerExam.classList.toggle('hidden', !show);
 };
 
+function setupFileInputFeedback(inputId, displayId) {
+    const fileInput = document.getElementById(inputId);
+    const fileDisplay = document.getElementById(displayId);
+    if (fileInput && fileDisplay) {
+        fileInput.addEventListener('change', () => {
+            const files = fileInput.files;
+            if (files.length > 1) fileDisplay.textContent = `${files.length} files selected`;
+            else if (files.length === 1) fileDisplay.textContent = files[0].name;
+            else fileDisplay.textContent = 'No files chosen';
+        });
+    }
+}
 
-// --- NEW: EXAM LISTING FUNCTION ---
+// --- AUTH STATE & DATA LOADING ---
+// Check auth state when the page loads
+document.addEventListener('DOMContentLoaded', async () => {
+    const { data: { session }, error } = await sb.auth.getSession();
+
+    if (error || !session) {
+        // If there's an error or no session, redirect to login
+        window.location.href = 'login.html';
+        return; // Stop further execution
+    }
+
+    // If session exists, setup the page
+    userEmailSpan.textContent = session.user.email;
+    await loadExams();
+    setupFileInputFeedback('exam-files', 'exam-file-display');
+});
+
+// Listen for sign-out events
+sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || !session) {
+        window.location.href = 'login.html';
+    }
+});
+
+logoutButton.addEventListener('click', async () => {
+    await sb.auth.signOut();
+});
+
+// --- EXAM LISTING FUNCTION ---
 async function loadExams() {
     examCardsContainer.innerHTML = '<p>Loading exams...</p>';
     const { data: { user } } = await sb.auth.getUser();
@@ -71,7 +96,7 @@ async function loadExams() {
     examCardsContainer.innerHTML = ''; // Clear loading message
     exams.forEach(exam => {
         const card = document.createElement('a');
-        card.href = `exam.html?id=${exam.id}`;
+        card.href = `exam.html?id=${exam.id}`; // Assuming an exam detail page exists
         card.className = 'exam-card';
         card.innerHTML = `
             <h3>${exam.exam_name}</h3>
@@ -81,90 +106,7 @@ async function loadExams() {
     });
 }
 
-
-function setupFileInputFeedback(inputId, displayId) {
-    const fileInput = document.getElementById(inputId);
-    const fileDisplay = document.getElementById(displayId);
-
-    if (fileInput && fileDisplay) {
-        fileInput.addEventListener('change', () => {
-            const files = fileInput.files;
-            if (files.length > 0) {
-                if (files.length === 1) {
-                    fileDisplay.textContent = files[0].name;
-                } else {
-                    fileDisplay.textContent = `${files.length} files selected`;
-                }
-            } else {
-                fileDisplay.textContent = 'No files chosen';
-            }
-        });
-    }
-}
-
-// --- AUTHENTICATION LOGIC ---
-showSignup.addEventListener('click', () => {
-    loginView.classList.add('hidden');
-    signupView.classList.remove('hidden');
-});
-
-showLogin.addEventListener('click', () => {
-    signupView.classList.add('hidden');
-    loginView.classList.remove('hidden');
-});
-
-signupForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fullName = document.getElementById('signup-name').value;
-    const email = document.getElementById('signup-email').value;
-    const password = document.getElementById('signup-password').value;
-
-    const { data, error } = await sb.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } }
-    });
-
-    if (error) {
-        alert(`Signup Error: ${error.message}`);
-    } else {
-        alert('Signup successful! Please check your email to verify your account.');
-        signupForm.reset();
-        showLogin.click();
-    }
-});
-
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) alert(`Login Error: ${error.message}`);
-    else loginForm.reset();
-});
-
-logoutButton.addEventListener('click', async () => {
-    await sb.auth.signOut();
-});
-
-// Listen for auth state changes
-sb.auth.onAuthStateChange((event, session) => {
-    if (session) {
-        authSection.classList.add('hidden');
-        appSection.classList.remove('hidden');
-        examListSection.classList.remove('hidden'); // Show exam list
-        userEmailSpan.textContent = session.user.email;
-        loadExams(); // Load exams on login
-    } else {
-        authSection.classList.remove('hidden');
-        appSection.classList.add('hidden');
-        examListSection.classList.add('hidden'); // Hide exam list
-        userEmailSpan.textContent = '';
-        examCardsContainer.innerHTML = ''; // Clear exams on logout
-    }
-});
-
-// --- EXAM PROCESSING LOGIC (REFACTORED) ---
+// --- EXAM PROCESSING LOGIC ---
 examForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     submitExamButton.disabled = true;
@@ -177,7 +119,7 @@ examForm.addEventListener('submit', async (e) => {
 
     if (!examName || files.length === 0) {
         alert('Please provide an exam name and at least one file.');
-        isError = true; // Treat this as an error for the finally block
+        isError = true;
     }
 
     try {
@@ -218,7 +160,8 @@ examForm.addEventListener('submit', async (e) => {
 
         setButtonText('Refreshing list...');
         examForm.reset();
-        await loadExams(); // Refresh the exam list
+        document.getElementById('exam-file-display').textContent = 'No files chosen'; // Reset file display
+        await loadExams();
 
     } catch (error) {
         isError = true;
@@ -238,6 +181,7 @@ examForm.addEventListener('submit', async (e) => {
 });
 
 async function uploadExamToSupabase(teacherId, examName, examData, zip, setButtonText) {
+    // This function remains the same as in your original code
     const maxTotalPoints = examData.exam.questions.reduce((sum, q) => sum + (q.max_total_points || 0), 0);
     setButtonText('Creating exam entry...');
     const { data: exam, error: examError } = await sb
@@ -261,11 +205,12 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
         if (q.context_visual) {
             const visualFile = zip.file(q.context_visual);
             if (visualFile) {
-                const filePath = `public/${examId}/${Date.now()}_${q.context_visual}`;
+                const sanitizedFilename = sanitizeFilename(q.context_visual);
+                const filePath = `public/${examId}/${Date.now()}_${sanitizedFilename}`;
                 const fileBlob = await visualFile.async('blob');
                 const fileExtension = q.context_visual.split('.').pop().toLowerCase();
                 const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-                const fileToUpload = new File([fileBlob], q.context_visual, { type: mimeType });
+                const fileToUpload = new File([fileBlob], sanitizedFilename, { type: mimeType });
 
                 const { error: uploadError } = await sb.storage
                     .from(STORAGE_BUCKET)
@@ -287,8 +232,10 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
                 question_number: q.question_number,
                 max_total_points: q.max_total_points,
                 context_text: q.context_text,
+                orig_llm_context_text: q.context_text,
                 context_visual: contextVisualUrl,
-                extra_comment: q.extra_comment
+                extra_comment: q.extra_comment,
+                orig_llm_extra_comment: q.extra_comment
             })
             .select('id')
             .single();
@@ -297,13 +244,20 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
         const questionId = question.id;
 
         if (q.sub_questions) {
+            // Establish a fallback counter if the JSON doesn't include sub_question_order
+            let fallbackOrder = 1;
+
             for (const sq of q.sub_questions) {
+                const subQuestionOrder = Number.isFinite(+sq.sub_question_order) ? +sq.sub_question_order : fallbackOrder++;
+
                 const { data: subQuestion, error: subQError } = await sb
                     .from('sub_questions')
                     .insert({
                         question_id: questionId,
                         sub_q_text_content: sq.sub_q_text_content,
+                        orig_llm_sub_q_text_content: sq.sub_q_text_content,
                         max_sub_points: sq.max_sub_points,
+                        sub_question_order: subQuestionOrder,
                     })
                     .select('id')
                     .single();
@@ -315,7 +269,8 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
                     const mcqOptionsToInsert = sq.mcq_options.map(opt => ({
                         sub_question_id: subQuestionId,
                         mcq_letter: opt.mcq_letter,
-                        mcq_content: opt.mcq_content
+                        mcq_content: opt.mcq_content,
+                        orig_llm_mcq_content: opt.mcq_content
                     }));
                     const { error: mcqError } = await sb.from('mcq_options').insert(mcqOptionsToInsert);
                     if (mcqError) throw new Error(`Failed to insert MCQ options: ${mcqError.message}`);
@@ -324,8 +279,3 @@ async function uploadExamToSupabase(teacherId, examName, examData, zip, setButto
         }
     }
 }
-
-// --- MAIN LOGIC ---
-document.addEventListener('DOMContentLoaded', async () => {
-    setupFileInputFeedback('exam-files', 'exam-file-display');
-});
