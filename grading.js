@@ -65,7 +65,6 @@ gradeAllButton.addEventListener('click', async (e) => {
   }
 });
 
-
 /**
  * Process grading for a single student_exam.
  * @param {string} examId
@@ -271,4 +270,3 @@ async function updateGradingResultsInDb(studentExamId, gcfResponse, subQuestionT
 
   if (examUpdateError) throw new Error(`Failed to update final score: ${examUpdateError.message}`);
 }
-
