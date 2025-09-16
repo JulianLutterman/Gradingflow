@@ -12,7 +12,7 @@ Of course. Here is a completely new, detailed README for the GradingFlow project
 </p>
 
 <p align="center">
-  A full-stack, AI-native platform that transforms static exam documents (PDFs/images) into interactive, auto-gradable digital formats. Built from first principles with vanilla JS, Python, and a suite of modern generative AI models.
+  A full-stack, AI-native platform that transforms static exam documents (PDFs/images) into interactive, auto-gradable digital formats.
 </p>
 
 ---
@@ -87,4 +87,5 @@ This is a solo project built in my spare time. Development started in late-June 
 *   **Long-Term Vision**:
     *   **Subject-Specific Finetuned Models**: Use Reinforcement Learning from Human Feedback (RLHF) based on teacher corrections to finetune grading models for specific subjects (e.g., Physics, History), boosting accuracy and nuance.
     *   **Agent-Based Workflows**: The ultimate goal is to move beyond a UI-driven process. A teacher should be able to simply state their intent: *"Grade my Physics midterm submissions and flag any answers that mention 'quantum entanglement'."* An autonomous agent would then orchestrate this entire pipeline—fetching the exam, finding the submissions, running the grading function, and applying the custom filter—delivering a complete result without manual clicks.
+
 
