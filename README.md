@@ -85,7 +85,8 @@ This is a solo project built in my spare time. Development started in late-June 
     *   **Teacher Dashboard**: Add analytics to show class-wide performance on specific questions and identify common mistakes.
 
 *   **Long-Term Vision**:
-    *   **Subject-Specific Finetuned Models**: Use Reinforcement Learning from Human Feedback (RLHF) based on teacher corrections to finetune grading models for specific subjects (e.g., Physics, History), boosting accuracy and nuance.
+    *   **Subject-Specific Finetuned Models**: Use Reinforcement Finetuning based on teacher corrections to finetune grading models for specific subjects (e.g., Physics, History), boosting accuracy and nuance.
     *   **Agent-Based Workflows**: The ultimate goal is to move beyond a UI-driven process. A teacher should be able to simply state their intent: *"Grade my Physics midterm submissions and flag any answers that mention 'quantum entanglement'."* An autonomous agent would then orchestrate this entire pipeline—fetching the exam, finding the submissions, running the grading function, and applying the custom filter—delivering a complete result without manual clicks.
+
 
 
