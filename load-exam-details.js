@@ -172,6 +172,7 @@ async function loadExamDetails(examId) {
 
 }
 
+
 async function refreshExamDataCache(examId) {
   if (!examId) {
     return { data: null, error: new Error('Missing exam ID') };

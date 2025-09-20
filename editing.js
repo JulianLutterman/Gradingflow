@@ -1895,6 +1895,3 @@ function setEditModeStyles(root, isEditing, targetType) {
         }
     }
 }
-
-
-
