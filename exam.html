@@ -17,15 +17,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"></script>
-    <script type="text/javascript">
-      window._mfq = window._mfq || [];
-      (function() {
-        var mf = document.createElement("script");
-        mf.type = "text/javascript"; mf.defer = true;
-        mf.src = "//cdn.mouseflow.com/projects/90c84f17-2328-4cb1-bbcb-0295000a0582.js";
-        document.getElementsByTagName("head")[0].appendChild(mf);
-      })();
-    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -242,6 +233,18 @@
         </div>
     </div>
 
+    <div id="editing-locked-modal" class="modal-overlay hidden">
+        <div class="modal-content confirm-modal-content">
+            <span class="modal-close" id="editing-locked-modal-close">×</span>
+            <h3>Action Unavailable</h3>
+            <p id="editing-locked-modal-text">Uploads or score generation are currently in progress. Please wait until they finish before editing, deleting, or adding items.</p>
+            <div class="confirm-modal-actions">
+                <button id="editing-locked-modal-close-btn" class="cancel-btn">Close</button>
+                <button id="editing-locked-modal-understood-btn" class="save-btn">Understood</button>
+            </div>
+        </div>
+    </div>
+
     <div id="confirm-modal" class="modal-overlay hidden">
         <div class="modal-content confirm-modal-content">
             <span class="modal-close" id="confirm-modal-close">×</span>
@@ -269,6 +272,5 @@
 <script src="load-exam-details.js"></script>
 <script src="main.js"></script>
 </html>
-
 
 
