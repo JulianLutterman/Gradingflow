@@ -253,3 +253,6 @@ def exam_structurer(request):
     ))
     response.headers.extend(headers)
     return response
+    response.headers.extend(headers)
+
+    return response
