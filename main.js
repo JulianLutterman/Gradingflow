@@ -1,3 +1,5 @@
+import { inject } from "@vercel/analytics"
+
 // --- MAIN LOGIC ---
 document.addEventListener('DOMContentLoaded', async () => {
   setupFileInputFeedback('appendix-files', 'appendix-file-display');
@@ -95,3 +97,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 });
+
