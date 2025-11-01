@@ -1,0 +1,50 @@
+#appendix-modal-title {
+    margin: 0;
+}
+
+#appendix-modal-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+#rules-modal h2 {
+    margin-bottom: 0;
+}
+
+#appendix-modal-content h4,
+#appendix-modal-content p,
+#rules-modal-text h4,
+#rules-modal-text p,
+#rules-modal-text ul,
+#rules-modal-text ol {
+    margin: -1em 0 0 0;
+}
+
+#rules-modal-text textarea {
+    margin-bottom: 1rem;
+}
+
+.appendix-button {
+    border: none;
+    border-radius: 15px;
+    background-color: transparent;
+    color: transparent;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition-duration: 0.3s;
+    text-align: center;
+    display: inline-block;
+    transition-duration: 0.3s;
+    white-space: nowrap;
+    padding: 0.7rem 0.9rem;
+}
+
+.question-block:hover .appendix-button {
+    color: var(--color-text-dark);
+}
+
+    .appendix-button:hover {
+        background-color: var(--color-light-blue-two);
+    }
