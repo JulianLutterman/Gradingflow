@@ -98,7 +98,7 @@ def call_image_parser(files):
         for file in files:
             files_data.append(('files', (file.filename, file.stream, file.content_type)))
         
-        response = requests.post(IMAGE_PARSER_URL, files=files_data, timeout=300)
+        response = requests.post(IMAGE_PARSER_URL, files=files_data, timeout=600)
         
         if response.status_code == 200:
             print("Image parser completed successfully")
@@ -252,7 +252,4 @@ def exam_structurer(request):
         download_name='structured_exam.zip'
     ))
     response.headers.extend(headers)
-    return response
-    response.headers.extend(headers)
-
     return response
