@@ -1,5 +1,0 @@
-functions-framework
-openai
-Pillow
-PyMuPDF
-google-genai

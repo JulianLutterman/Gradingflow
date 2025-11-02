@@ -1,4 +1,0 @@
-functions-framework
-google-genai
-Flask
-requests
